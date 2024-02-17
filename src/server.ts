@@ -2,11 +2,19 @@
 import express, { Request, Response } from 'express'
 import chokidar from 'chokidar'
 import { disconnectDatabase, getCollection } from './db'
-import { x } from './app'
+import { FetchPrice, x } from './app'
 
 // Initialize Express app
 const app = express()
-
+app.use(
+  express.json({
+    limit: '1mb',
+    verify: (req, res, buf) => {
+      // @ts-ignore
+      req.rawBody = buf.toString() // rawBody required only for cashfree webhook
+    },
+  })
+)
 // Express routes
 app.get('/:id', async (req: Request, res: Response) => {
   console.log(x, req.params.id)
@@ -18,6 +26,18 @@ app.get('/:id', async (req: Request, res: Response) => {
       .limit(10)
       .toArray()
     return res.json(orders)
+  } catch (error) {
+    console.error('Error fetching orders:', error)
+    return res.status(500).send('Error fetching orders')
+  }
+  // return res.json(x)
+})
+
+app.post('/fetch-price', async (req: Request, res: Response) => {
+  console.log(x, req.params.id)
+  try {
+    const data = await FetchPrice( {args: req.body} )
+    return res.json(data)
   } catch (error) {
     console.error('Error fetching orders:', error)
     return res.status(500).send('Error fetching orders')
