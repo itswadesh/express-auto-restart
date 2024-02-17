@@ -1,24 +1,28 @@
 // File: server.ts
 import express, { Request, Response } from 'express'
 import chokidar from 'chokidar'
-import { getCollection } from './db'
+import { disconnectDatabase, getCollection } from './db'
 import { x } from './app'
 
 // Initialize Express app
 const app = express()
 
 // Express routes
-app.get('/', async (req: Request, res: Response) => {
-  console.log(x)
+app.get('/:id', async (req: Request, res: Response) => {
+  console.log(x, req.params.id)
   try {
-    const usersCollection = await getCollection('users')
-    const users = await usersCollection.find().toArray()
-    return res.json(users)
+    const ordersCollection = await getCollection(req.params.id || 'orders')
+    const orders = await ordersCollection
+      .find()
+      .project({ orderNo: 1, sku: 1 })
+      .limit(10)
+      .toArray()
+    return res.json(orders)
   } catch (error) {
-    console.error('Error fetching users:', error)
-    return res.status(500).send('Error fetching users')
+    console.error('Error fetching orders:', error)
+    return res.status(500).send('Error fetching orders')
   }
-  return res.json(x)
+  // return res.json(x)
 })
 
 // Start Express server
@@ -28,14 +32,26 @@ const server = app.listen(PORT, () => {
 })
 
 // Watch for file changes without restarting the server
-const watcher = chokidar.watch('./', {
-  ignored: /(^|[\/\\])\../, // ignore dotfiles
+const watcher = chokidar.watch('./src', {
+  ignored: /^(?!.*\.ts$)(?!.*\/db\.ts$)[^\n]*$/,
   persistent: true
+})
+
+watcher.on('ready', () => {
+  console.log('Initial scan complete. Ready for changes.')
+})
+
+watcher.on('add', (path) => {
+  console.log(`File ${path} has been added`)
 })
 
 watcher.on('change', (path) => {
   console.log(`File ${path} has been changed`)
-  // You can handle specific file changes here and execute necessary actions
+  // disconnectDatabase()
+})
+
+watcher.on('unlink', (path) => {
+  console.log(`File ${path} has been removed`)
 })
 
 // Graceful shutdown
